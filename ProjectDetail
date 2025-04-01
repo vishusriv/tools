@@ -1,1 +1,22 @@
+(1) Q: Can you please explain your UART DCD project?
+Sure. Junos support log of disconnect feature. Which means if system is configured with this feature and console is dropped (cable pull out for example)
+all the sessions thorugh this console should be cleaned up. Typically, if there are sessions through the console terminal and the console is dropped off,
+by default sessions through that console port are not cleaned up.
+This causes a wastage of system resources as the sessions are not cleaned up and they are also useless as if console is dropped off, nothing can be done.
+
+HW -- > DCD line --> CPLD --> GPIO--> irq --> driver--> UART core --> sigHup to application  
+
+Generally speaking, what happes is that driver upon detecting DCD is lost on the line, inform the FreeBSD uart core layer. UART core then send the SIGHUP
+(Hangup) to the respective application. Application can then do a session clean up which are established though the console terminal in question.
+(A) Created interface by modifying GPIO driver code, which can configure the GPIO lines as interrupt lines.
+(B) Added driver code to acheive the same.
+
+BUG: First version of the HW was a faulty and was kind of generating interrupts continiously, causing instabilty and crash.
+Fix: Probed the UART DCD lines  and verified that it generates spurious  interupts. Discussed the HW team and shown the traces
+They fixed it in the HW.
+
+
+(2) ISSU: How does ISSU works. Can you explaina and a high level design flow explainig the details?
+
+
 
