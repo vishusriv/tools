@@ -6,7 +6,7 @@ This causes a wastage of system resources as the sessions are not cleaned up and
 
 HW -- > DCD line --> CPLD --> GPIO--> irq --> driver--> UART core --> sigHup to application  
 
-Generally speaking, what happes is that driver upon detecting DCD is lost on the line, inform the FreeBSD uart core layer. UART core then send the SIGHUP
+Generally speaking, what happens is that driver upon detecting DCD is lost on the line, inform the FreeBSD uart core layer. UART core then send the SIGHUP
 (Hangup) to the respective application. Application can then do a session clean up which are established though the console terminal in question.
 (A) Created interface by modifying GPIO driver code, which can configure the GPIO lines as interrupt lines.
 (B) Added driver code to acheive the same.
@@ -15,13 +15,11 @@ BUG: First version of the HW was a faulty and was kind of generating interrupts 
 Fix: Probed the UART DCD lines  and verified that it generates spurious  interupts. Discussed the HW team and shown the traces
 They fixed it in the HW.
 
-
 (2) ISSU: How does ISSU works. Can you explain and a high level design flow explainig the details?
-
 ISSU feature allows software upgrade between two Junos versions, without disuption is control path and minimal
 disruption is data path.
 
-What is requirement for ISSU: In the plateform there are few must pre-requisite for ISSU to take place.
+What are requirements for ISSU: In the plateform there are few must pre-requisite for ISSU to take place.
 a > GRES : Graceful Routing Engine Switchover Concepts
 ======================================================
 
@@ -35,7 +33,10 @@ To preserve routing during a switchover, GRES must be combined with either:
 
 b > NSR :
 =========
-
+High availability feature that allows a routing platform with redundant Routing Engines to preserve routing information on the backup
+Routing Engine and switch over from the primary Routing Engine to the backup Routing Engine without alerting peer nodes that a change 
+has occurred. NSR uses the graceful Routing Engine switchover (GRES) infrastructure to preserve interface, kernel, and routing information.
+Also known as nonstop routing (NSR).
 
 
 
