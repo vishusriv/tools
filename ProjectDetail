@@ -20,7 +20,9 @@ ISSU feature allows software upgrade between two Junos versions, without disupti
 disruption is data path.
 
 What are requirements for ISSU: In the plateform there are few must pre-requisite for ISSU to take place.
-a > GRES : Graceful Routing Engine Switchover Concepts
+a > Routing platform must have a redundant routing engine which plays a role of back-up during ISSU.
+
+b > GRES : Graceful Routing Engine Switchover Concepts
 ======================================================
 
 The graceful Routing Engine switchover (GRES) feature in Junos OS and Junos OS Evolved enables a device with redundant Routing Engines to continue forwarding 
@@ -31,7 +33,7 @@ To preserve routing during a switchover, GRES must be combined with either:
 ++Graceful restart protocol extensions
 ++Nonstop active routing (NSR)
 
-b > NSR :
+c > NSR :
 =========
 High availability feature that allows a routing platform with redundant Routing Engines to preserve routing information on the backup
 Routing Engine and switch over from the primary Routing Engine to the backup Routing Engine without alerting peer nodes that a change 
@@ -39,8 +41,31 @@ has occurred. NSR uses the graceful Routing Engine switchover (GRES) infrastruct
 Also known as nonstop routing (NSR).
 
 
+Process : on cli, user have to execute "request system software in-service-upgrade" which triggeres a sequnce of events; 
+=========
+
+one : The primary Routing Engine validates the router configuration to ensure that it can be committed when you use the new software version.
+
+=> Checks are made for the following:
+=> Disk space is available for the /var file system on both Routing Engines.
+=> The configuration is supported by a unified ISSU.
+=> The PICs are supported by a unified ISSU.
+=> Graceful Routing Engine switchover is enabled.
+=> Nonstop active routing is enabled.
+
+These checks are the same as the checks made when you enter the request system software validate in-service-upgrade command. If there is insufficient
+disk space available on either of the Routing Engines, the unified ISSU process fails and returns an error message. However, unsupported PICs do not prevent
+a unified ISSU. If there are unsupported PICs, the system issues a warning to indicate that these PICs will restart during the upgrade. Similarly, if there 
+is an unsupported protocol configured, the system issues a warning that packet loss might occur for the unsupported protocol during the up¨.
+
+two :  Figure 1: Device Status Before Starting a Unified ISSU
+
+Device Status Before Starting a Unified ISSU
 
 
-
-
-
+       |------------------|----------
+       |                  |  re0    | 
+       |                  |----------
+       |                  |----------
+       |                  |   re1   |
+       |------------------|----------
