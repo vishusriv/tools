@@ -16,7 +16,30 @@ Fix: Probed the UART DCD lines  and verified that it generates spurious  interup
 They fixed it in the HW.
 
 
-(2) ISSU: How does ISSU works. Can you explaina and a high level design flow explainig the details?
+(2) ISSU: How does ISSU works. Can you explain and a high level design flow explainig the details?
+
+ISSU feature allows software upgrade between two Junos versions, without disuption is control path and minimal
+disruption is data path.
+
+What is requirement for ISSU: In the plateform there are few must pre-requisite for ISSU to take place.
+a > GRES : Graceful Routing Engine Switchover Concepts
+======================================================
+
+The graceful Routing Engine switchover (GRES) feature in Junos OS and Junos OS Evolved enables a device with redundant Routing Engines to continue forwarding 
+packets even if one Routing Engine fails. GRES preserves interface and kernel information, and traffic is not interrupted. However, GRES does not preserve the
+control plane.
+Neighboring devices detect that the device has experienced a restart and react to the event in a manner prescribed by individual routing protocol specifications.
+To preserve routing during a switchover, GRES must be combined with either:
+++Graceful restart protocol extensions
+++Nonstop active routing (NSR)
+
+b > NSR :
+=========
+
+
+
+
+
 
 
 
