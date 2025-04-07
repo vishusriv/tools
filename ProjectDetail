@@ -45,7 +45,7 @@ Process : on cli, user have to execute "request system software in-service-upgra
 =========
 
 one : The primary Routing Engine validates the router configuration to ensure that it can be committed when you use the new software version.
-
+====
 => Checks are made for the following:
 => Disk space is available for the /var file system on both Routing Engines.
 => The configuration is supported by a unified ISSU.
@@ -59,7 +59,7 @@ a unified ISSU. If there are unsupported PICs, the system issues a warning to in
 is an unsupported protocol configured, the system issues a warning that packet loss might occur for the unsupported protocol during the up¨.
 
 two :  Figure 1: Device Status Before Starting a Unified ISSU
-
+====
 Device Status Before Starting a Unified ISSU
 
 
@@ -69,3 +69,48 @@ Device Status Before Starting a Unified ISSU
        |                  |----------            ...........
        |                  |   re1   |
        |------------------|----------
+
+
+three: After the validation succeeds, the management process installs (copies) the new software image to the backup Routing Engine.
+======
+
+four: The backup Routing Engine is rebooted.
+====
+
+five : After the backup Routing Engine is rebooted and is running the new software, the kernel state synchronization process (ksyncd) synchronizes
+=====
+(copies) the configuration file and the kernel state from the primary Routing Engine.
+
+six: After the configuration file and the kernel state are synchronized to the backup Routing Engine, the chassis process (chassisd) on the primary 
+====
+Routing Engine prepares other software processes for the unified ISSU. The chassis process informs the various software processes (such as rpd, apsd, bfdd, 
+and so on) about the unified ISSU and waits for responses from them. When all the processes are ready, the chassis process sends an ISSU_PREPARE message to
+the FPCs installed in the router. You can display the unified ISSU process messages by using the show log messages command.
+
+seven: The Packet Forwarding Engine on each FPC saves its state and downloads the new software image from the backup Routing Engine. Next, each Packet Forwarding 
+======
+Engine sends an ISSU_READY message to the chassis process.
+
+eight: After receiving an ISSU_READY message from a Packet Forwarding Engine, the chassis process sends an ISSU_REBOOT message to the FPC on which the Packet 
+=====
+
+Forwarding Engine resides. The FPC reboots with the new software image. After the FPC is rebooted, the Packet Forwarding Engine restores the FPC state, and a 
+high-speed internal link is established with the backup Routing Engine running the new software. The chassis process link is also reestablished with the primary
+Routing Engine.
+
+nine: After all Packet Forwarding Engines have sent a READY message using the chassis process on the primary Routing Engine, other software processes are prepared 
+=====
+for a Routing Engine switchover. The system is ready for a switchover at this point.
+
+ten: The Routing Engine switchover occurs, and the Routing Engine (re1) that was the backup now becomes the primary Routing Engine.
+====
+
+eleven: The new backup Routing Engine is now upgraded to the new software image. (This step is skipped if you have specified the no-old-master-upgrade option in the
+=======
+
+request system software in-service-upgrade command.)
+
+twelve: 
+=======
+
+When the backup Routing Engine has been successfully upgraded, the unified ISSU is complete. 
