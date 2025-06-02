@@ -13,7 +13,7 @@ int sort012(int a[], int n)
     high = n - 1;
     mid = 0;
     while (mid <= high) {
-          if (a[]mid == 1) {
+          if (a[mid] == 1) {
               swap(&a[mid++], &a[lo++]);
           } else if (a[mid] == 1) {
                     mid++;
