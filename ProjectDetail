@@ -114,3 +114,61 @@ twelve:
 =======
 
 When the backup Routing Engine has been successfully upgraded, the unified ISSU is complete. 
+
+
+OPTIMISATION  CODE FLOW : 
+========================
+
+According to ENS support for Dual load In-place Upgrade, below is the workflow for in-place upgrade with ENS
+
+Disable ENS (In case of SmartNIC, disabling ENS is deferred to after step #5)
+Register OLD NSX-T ENS module with RTM module. This will happen at module init time.
+RTM will send PREDUALLOAD ioctl, upon this event, NSX-T ENS (FROM build) will unregister from ESX FPO service, and do other clean up, including closing char devices etc. FPO will be unregistered on old NSX-T ENS module. This means closing and disabling all FPO uplinks on every portset on the host. 
+This means briefly, FPO will be completely disabled, as there is no NSX-T ENS module which is registered to its service.
+Dual load ENS NSX-T module from TO build. New ENS module will register with RTM automatically on module init time. Also, automatically it will register with ESX FPO service at module init.
+FPO will be enabled here and serviced by new NSX-T ENS module.
+As ENS is disabled already, when other module needs to call into ENS, it uses VMKAPIs such as vmk_EnsSwitchCommand(), this call will fail. Traffic is flowing still in headless mode, and non ENS performance. (Slow path)
+Upgrade portset  via RTM (Take portset write lock - block port – RTM save - hot swap – RTM restore – unblock- release portset write lock) Some outage here due to ports being blocked and hot swap.
+Traffic is flowing still in headless mode, and non ENS performance.
+Traffic will be flowing for that portset at ENS performance again. (Fast path)
+Repeat steps 4-7 for each portset 
+DFW port by port upgrade as per usual.
+Unload old ENS NSX-T module once all above is done for all portsets 
+nsx-opsagent starts and MP send hostConfig message to re-enable ENS on the portset, using the "TO build" ENS module. Some outage here as well due to driver switching. (In case of SmartNIC, ENS activation will be done after step #6)
+From step #1 to #12, the dual load script will trigger:
+
+At step #1, message exchanges among vmkernel, hostd, device manager and uplink helper thread to detach driver from pNIC device, and re-attach with ENS mode disabled.
+Dual load script sends ENS deactivate/activate command to vmkernel portset layer.
+Portset layer notifies host to refresh pNIC driver on the uplink.
+Hostd sends an unbind and a rescan request to device manager.
+In response to the unbind request, device manager quiesce and detach driver from the device.
+In response to the rescan request, device manager calls scan device on device's parent, to trigger the re-creation of device object and the initialization of device in non-ENS mode.
+Driver creates uplink logical device that will be claimed by uplink driver, which follows native driver model to init the device in uplink helper context.
+Uplink will be in io-able state in non-ENS mode. 
+Uplink continues forwarding traffic in non-ENS mode from step #2 to #7.
+At step #12, similar operations as above will perform, except that pNIC will switch back to ENS mode.
+During uplink's switching between ENS and non-ENS mode, packets sent to uplink and received from uplink will be dropped. To avoid this switching, we can:
+
+
+
+Change the order of operations in existing in-place upgrade workflow, to reduce the duration of ENS deactivation, to avoid extra works in ESX platform that process ENS uplink traffic while ENS is deactivated.
+
+Detach uplink from ENS first prior to step #1, but still keep it in ENS mode. As a result, FPO will be cleaned up, all Tx and Rx queues will be quiesced and released.
+FPO cleanup will be called in the "FROM build" ENS module.
+Quiesce and destroy will be called for each Tx and Rx queue from QM in the "FROM build" ENS module.
+Deconfigure queue will be called for the device in the "FROM build" ENS module.
+Place uplink is a new mode, call "ENS ready" mode.
+When ENS is disabled at step #1
+Portset layer identifies uplinks are in "ENS ready" mode, instead of notifying hostd to refresh pNIC driver, it will simply skip the uplink.
+Similarly, when hostd receives a portset level ENS deactivate message, it should skip uplinks in "ENS ready" mode.
+At step #6, after FPO service is unregistered in "FROM build", and "TO build" ENS is dual loaded and hot swapped to "TO build" vswitch. Activate ENS using "TO build" ENS module in a new headless mode, where it only allows uplink to attach and skip software flow cache. This is to avoid extra work at ESX platform to create a separate context to poll ENS uplink in proposal #1.
+Attach uplink to ENS
+Portset layer checks uplink's state, if it's in "ENS ready" mode, don't notify hostd to refresh pNIC driver. Instead, attach uplink to ENS directly.
+ENS QM and FPO initialize the uplink as usual.
+As flow cache is disabled, packets poll from uplink will be punted to slow path directly in uplink's Rx networld or poll world context.
+Similarly for Tx path, as non uplink ports are not attached to ENS, their Tx world polls Tx packets from the port client, injects into virtual switch and hands over to ENS at ENS's uplink output IOChain. Tx packets will be queued in uplink's temp list and picked up by uplink's Tx networld or poll world and sent to pNIC driver.
+So, slow path will be handled by "TO build" NSX modules.
+As ENS already activated, at #12 of in-place upgrade process, activating ENS is not required. Instead, ENS can leave the new mode and start to accept non-uplink port's attach request. So, upgrade script will iterate ports on the portset and attach all non-uplink ports.
+
+
+
