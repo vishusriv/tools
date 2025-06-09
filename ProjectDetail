@@ -248,5 +248,13 @@ if ! fo_init_done
 
 
 
+4: For certain nics aggregation can not be done if geneve option is set (i. e) non zero.
+   On thor irrespective of option field aggregation would happen as long as flags
+   C or O bit are not set.
+    Also, if outer UDP checksum is enabled, LRO wont happen.
+
+
+
+
 
 
