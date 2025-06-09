@@ -200,3 +200,53 @@ The solution which NSX currently has is to configure the uplinks as active-activ
 TEP Groups allows overlay load-balancing at the granularity of flow, utilizing available link capacity. Designed to work with any scale up solutions like UENS/SmartNIC. Can support any TN form-factor(ESX, Edge VM, BM Edge). Allows for maximum link utilization for single VM as well as during contention with other VMs. Replace M-LAG requirement/complexity/inter-lock with underlay vendors/admins for NSX provisioning, true decoupling of overlay/underlay.  
 
 
+Bridge --- 
+
+driver1 --> psuedo bridge  = driver 2
+driver2 --> pseudo bridge =  driver 1
+
+
+
+cleanup path : 
+
+get w lock
+
+........ destroy engines...
+
+........ other clean up
+rel w lock
+destroy lock
+init_done = FALSE
+
+
+
+dispatch path :
+
+if ! init_done
+     return;
+
+
+
+After clean up:
+
+get w lock
+fo->init_done = false
+...... destry engine
+....... other clean up
+
+rel w lock
+destroy lock
+
+
+dispatch path:
+
+get r lock
+
+if ! fo_init_done
+    rel lock
+    return;
+
+
+
+
+
