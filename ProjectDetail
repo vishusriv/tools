@@ -170,5 +170,33 @@ Similarly for Tx path, as non uplink ports are not attached to ENS, their Tx wor
 So, slow path will be handled by "TO build" NSX modules.
 As ENS already activated, at #12 of in-place upgrade process, activating ENS is not required. Instead, ENS can leave the new mode and start to accept non-uplink port's attach request. So, upgrade script will iterate ports on the portset and attach all non-uplink ports.
 
+Maintain traffic between PktHandle stack and ENS driver. (See PR 3380485) 
+As uplink remains in ENS mode but the stack is in PktHandle mode, no uplink traffic is allowed due to lack of packet format conversion and proper context to handle them.
+To maintain minimum traffic between stack and driver, we need:
+The default RxQ/RSS engine are still valid during in-place upgrade.
+The "from build" ENS needs to stop the default queue(s) and backup the state (queue index and queue ID) on the platform while stopping and releasing other Rx queues.
+The "to build" ENS skips setup queue call for these default queues and only call start queue on them.
+The minimum number of Tx queues (which is required when HClk MQ is enabled) are still valid during in-place upgrade.
+The "from build" ENS needs to stop them and backup their state (queue index and queue ID) on the platform while stopping and releasing other Tx queues.
+The "to build" ENS skips setup queue call for these default queues and only call start queue on them.
+Platform needs to backup and restore state and maintain traffic
+Backup data through ENS passthrough command on the "from build" ENS before deconfigure queue command, and restore it on the "to build" ENS before the configure queue command.
+Datapath will use VM's Tx world for Tx, and driver's NetPoll world for Rx
+For Tx path:
+After uplink detaches from ENS, installs an IO chain to intercept all Tx packets. PktHandle to Mbuf conversion happens in the callback of this IOChain.
+Restarts all Tx queues.
+In case of HClk is disabled, add a per Tx queue lock to serialize all Tx calls into driver.
+In HClk is enabled, synchronization is done in HClk.
+For Tx completion, if HClk is enable, driver activates NetPoll, which will call HClk's ENS completion callback.
+For Tx completion, if HClk is disabled, NetPoll world will be waken up and holds the per Tx queue lock, calls into driver to complete Tx packets.
+For Rx path:
+Wake up NetPoll world instead of ENS networld
+Replace the NetPoll poll driver callback, instead of calling PktHandle driver poll callback, it calls ENS driver's burst Rx. And converts Rx mbuf to PktHandle and queue them in NetPoll's Rx packet list. So it can reuse NetPoll's existing code to push the packets into the stack.
+
+Benefits
+Virtual LAG
+Customers use 2/4 x 10, 2/4 x 25, 2/4 x 50, 2/4 x 100 network cards in their environment for bandwidth/availability reasons. The expectation is that workloads can use close to the available bandwidth when there is no contention and reasonable bandwidth when there is. M-LAG/MC-LAG/DT/VLT etc.. from different underlay vendors needs to work with the LACP implementation of ESX to make this work. This often makes things complex needing interlock with underlay network administrators during provisioning and day 2 operations, as such is discouraged by NSX reference design.
+The solution which NSX currently has is to configure the uplinks as active-active, which means we end up creating as many TEPs as the uplink. The workload VMs are placed statically behind a single TEP for its lifetime on the Host, which means the maximum TX/RX throughput available to a workload is limited by the individual ethernet PHY speed. This is not ideal. Since the VM to VTEP mapping is static, the throughput goes down by an additional factor of N for all workloads if N VMs, which got mapped to the same TEP, start TX/RX. So, on a system with 100G available bandwidth, a workload VM can end up seeing only 5 or 10Gbps throughput, this is unacceptable.
+TEP Groups allows overlay load-balancing at the granularity of flow, utilizing available link capacity. Designed to work with any scale up solutions like UENS/SmartNIC. Can support any TN form-factor(ESX, Edge VM, BM Edge). Allows for maximum link utilization for single VM as well as during contention with other VMs. Replace M-LAG requirement/complexity/inter-lock with underlay vendors/admins for NSX provisioning, true decoupling of overlay/underlay.  
 
 
